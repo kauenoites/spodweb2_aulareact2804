@@ -1,105 +1,88 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-const AddTodo = ({ addTodo }) => {
-  const handleKeyPress = (event) => {
-    if (event.key === "Enter") {
-      const input = event.target;
-      const text = input.value.trim();
-      if (text) {
-        addTodo(text);
-        input.value = "";
-      }
+function TodoList({ token }) {
+  const [todos, setTodos] = useState([]);
+  const [text, setText] = useState("");
+  const [filter, setFilter] = useState("all"); 
+
+  const fetchTodos = async () => {
+    const res = await fetch("http://localhost:3000/todos", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setTodos(data);
+  };
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  const addTodo = async () => {
+    if (!text.trim()) return;
+    const res = await fetch("http://localhost:3000/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (res.ok) {
+      fetchTodos();
+      setText("");
     }
   };
 
-  return (
-    <input
-      type="text"
-      placeholder="Adicione aqui sua nova tarefa"
-      onKeyDown={handleKeyPress}
-    />
-  );
-};
-
-const TodoFilter = ({ setFilter }) => {
-  return (
-    <div className="center-content">
-      <a href="#" onClick={() => setFilter("all")}>
-        Todos os itens
-      </a>{" "}
-      |{" "}
-      <a href="#" onClick={() => setFilter("done")}>
-        Concluídos
-      </a>{" "}
-      |{" "}
-      <a href="#" onClick={() => setFilter("pending")}>
-        Pendentes
-      </a>
-    </div>
-  );
-};
-
-const TodoItem = ({ todo, markTodoAsDone }) => {
-  const handleClick = () => {
-    markTodoAsDone(todo.id);
-  };
-
-  return (
-    <>
-      {todo.done ? (
-        <li style={{ textDecoration: "line-through" }}>{todo.text}</li>
-      ) : (
-        <li>
-          {todo.text}{" "}
-          <button onClick={handleClick} style={{ marginLeft: "10px" }}>
-            Concluir
-          </button>
-        </li>
-      )}
-    </>
-  );
-};
-
-const TodoList = () => {
-  const [todos, setTodos] = useState([
-    { id: crypto.randomUUID(), text: "Learn React", done: false },
-    { id: crypto.randomUUID(), text: "Learn JS", done: true },
-  ]);
-  const [filter, setFilter] = useState("all"); 
-
-  const addTodo = (text) => {
-    const newTodo = { id: crypto.randomUUID(), text, done: false };
-    setTodos((prevTodos) => [...prevTodos, newTodo]);
-  };
-
-  const markTodoAsDone = (id) => {
-    setTodos((prevTodos) =>
-      prevTodos.map((todo) => (todo.id === id ? { ...todo, done: true } : todo))
-    );
+  const toggleTodo = async (id, done) => {
+    await fetch(`http://localhost:3000/todos/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ done: !done }),
+    });
+    fetchTodos();
   };
 
   const filteredTodos = todos.filter((todo) => {
     if (filter === "done") return todo.done;
     if (filter === "pending") return !todo.done;
-    return true; 
+    return true;
   });
 
   return (
-    <>
-      <h1>Todo List</h1>
-      <div className="center-content">
-        Versão inicial da aplicação de lista de tarefas para a disciplina SPODWE2
+    <div>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Nova tarefa"
+      />
+      <button onClick={addTodo}>Adicionar</button>
+
+      <div style={{ marginTop: "10px" }}>
+        <button onClick={() => setFilter("all")}>Todos</button>
+        <button onClick={() => setFilter("pending")}>Pendentes</button>
+        <button onClick={() => setFilter("done")}>Concluídos</button>
       </div>
-      <TodoFilter setFilter={setFilter} />
-      <AddTodo addTodo={addTodo} />
-      <ul id="todo-list">
-        {filteredTodos.map((todo, index) => (
-          <TodoItem key={index} todo={todo} markTodoAsDone={markTodoAsDone} />
+
+      <ul>
+        {filteredTodos.map((todo) => (
+          <li
+            key={todo.id}
+            onClick={() => toggleTodo(todo.id, todo.done)}
+            style={{
+              textDecoration: todo.done ? "line-through" : "none",
+              cursor: "pointer",
+            }}
+          >
+            {todo.text}
+          </li>
         ))}
       </ul>
-    </>
+    </div>
   );
-};
+}
 
-export { TodoList };
-
+export default TodoList;
